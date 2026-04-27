@@ -1,0 +1,1882 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Graduation Trip Itinerary</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+      crossorigin=""
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        /* shadcn-like dark tokens (static HTML approximation) */
+        --bg: #000000;
+        --text: #fafafa;
+        --soft: #e5e5e5;
+        --muted: #a1a1aa;
+        --panel: #0a0a0a;
+        --panel-strong: #0f0f0f;
+        --line: rgba(255, 255, 255, 0.12);
+        --blue: #7cc7ff;
+        --green: #9df0c5;
+        --amber: #ffd28a;
+        --pink: #ff9ec8;
+        --shadow: rgba(0, 0, 0, 0.55);
+        --radius: 14px;
+        --radius-sm: 10px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        letter-spacing: -0.015em;
+      }
+
+      body::before {
+        content: none;
+      }
+
+      main {
+        position: relative;
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 56px 0 72px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+        align-items: stretch;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        background: var(--panel-strong);
+        border-radius: var(--radius);
+        box-shadow: 0 18px 60px var(--shadow);
+      }
+
+      .map-card {
+        padding: 18px;
+      }
+
+      .map-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      #trip-map {
+        width: 100%;
+        height: min(56vh, 520px);
+        border-radius: 22px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.25);
+      }
+
+      /* App-like markers + clusters */
+      .pin-wrap {
+        width: 18px;
+        height: 18px;
+        display: grid;
+        place-items: center;
+      }
+
+      .pin {
+        display: block;
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        border: 2px solid rgba(255, 255, 255, 0.72);
+        box-shadow:
+          0 10px 24px rgba(0, 0, 0, 0.35),
+          0 0 0 1px rgba(255, 255, 255, 0.10);
+      }
+
+      .pin.c-ceremony {
+        background: var(--pink);
+        box-shadow:
+          0 10px 24px rgba(0, 0, 0, 0.35),
+          0 0 0 1px rgba(255, 255, 255, 0.10),
+          0 0 22px rgba(255, 158, 200, 0.28);
+      }
+
+      .pin.c-lodging {
+        background: var(--green);
+        box-shadow:
+          0 10px 24px rgba(0, 0, 0, 0.35),
+          0 0 0 1px rgba(255, 255, 255, 0.10),
+          0 0 22px rgba(157, 240, 197, 0.22);
+      }
+
+      .pin.c-hotel {
+        background: var(--blue);
+        box-shadow:
+          0 10px 24px rgba(0, 0, 0, 0.35),
+          0 0 0 1px rgba(255, 255, 255, 0.10),
+          0 0 22px rgba(124, 199, 255, 0.22);
+      }
+
+      .pin.c-food {
+        background: var(--amber);
+        box-shadow:
+          0 10px 24px rgba(0, 0, 0, 0.35),
+          0 0 0 1px rgba(255, 255, 255, 0.10),
+          0 0 22px rgba(255, 210, 138, 0.22);
+      }
+
+      .leaflet-marker-icon.pin-wrap {
+        background: transparent;
+        border: none;
+      }
+
+      .marker-cluster {
+        background: transparent !important;
+      }
+
+      .marker-cluster div {
+        width: 36px !important;
+        height: 36px !important;
+        margin-left: 0 !important;
+        margin-top: 0 !important;
+        border-radius: 999px !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        backdrop-filter: blur(18px);
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+        display: grid !important;
+        place-items: center !important;
+      }
+
+      .marker-cluster span {
+        color: var(--text) !important;
+        font: inherit !important;
+        font-size: 12px !important;
+        font-weight: 900 !important;
+        letter-spacing: -0.02em !important;
+      }
+
+      .places {
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.18);
+        padding: 14px;
+        overflow: auto;
+        max-height: min(56vh, 520px);
+      }
+
+      .places-group[hidden] {
+        display: none !important;
+      }
+
+      .place {
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.045);
+      }
+
+      .place + .place {
+        margin-top: 10px;
+      }
+
+      .place h3 {
+        margin: 0 0 6px;
+        font-size: 14px;
+        letter-spacing: -0.02em;
+      }
+
+      .place .addr {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .btn {
+        appearance: none;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--soft);
+        border-radius: 999px;
+        padding: 8px 10px;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        cursor: pointer;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .btn:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(255, 255, 255, 0.07);
+      }
+
+      .map-toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        margin-top: 12px;
+      }
+
+      .segmented {
+        display: inline-flex;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .segmented button {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        padding: 9px 12px;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+      }
+
+      .segmented button[aria-pressed="true"] {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+
+      .intro {
+        padding: 36px;
+        overflow: hidden;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        gap: 10px;
+        align-items: center;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 24px var(--green);
+      }
+
+      h1 {
+        max-width: 720px;
+        margin: 28px 0 18px;
+        font-size: clamp(44px, 8vw, 86px);
+        line-height: 0.92;
+        letter-spacing: -0.075em;
+      }
+
+      .lede {
+        max-width: 650px;
+        margin: 0;
+        color: var(--soft);
+        font-size: 18px;
+        line-height: 1.65;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 34px;
+      }
+
+      .stat {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .stat b {
+        display: block;
+        font-size: 26px;
+        letter-spacing: -0.055em;
+      }
+
+      .stat span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      section {
+        margin-top: 26px;
+      }
+
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: end;
+        margin: 44px 0 16px;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: clamp(26px, 4vw, 42px);
+        letter-spacing: -0.055em;
+      }
+
+      .section-head p {
+        max-width: 460px;
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 14px 0 10px;
+      }
+
+      .who {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--soft);
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+      }
+
+      .swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+      }
+
+      .sw-siu {
+        background: var(--blue);
+        box-shadow: 0 0 18px rgba(124, 199, 255, 0.45);
+      }
+
+      .sw-pansy {
+        background: var(--pink);
+        box-shadow: 0 0 18px rgba(255, 158, 200, 0.45);
+      }
+
+      .sw-honbiu {
+        background: var(--amber);
+        box-shadow: 0 0 18px rgba(255, 210, 138, 0.45);
+      }
+
+      .sw-puiming {
+        background: var(--green);
+        box-shadow: 0 0 18px rgba(157, 240, 197, 0.45);
+      }
+
+      .table-shell {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: 0 18px 60px var(--shadow);
+      }
+
+      .table-wrap {
+        overflow: auto;
+        max-height: min(70vh, 760px);
+      }
+
+      table.matrix {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        min-width: 920px;
+      }
+
+      .matrix thead th {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: rgba(0, 0, 0, 0.92);
+        border-bottom: 1px solid var(--line);
+        padding: 14px 14px;
+        text-align: left;
+        font-size: 12px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .matrix thead th.sticky-left,
+      .matrix tbody td.sticky-left {
+        position: sticky;
+        left: 0;
+        z-index: 6;
+      }
+
+      .matrix thead th.sticky-left {
+        z-index: 7;
+      }
+
+      .matrix tbody td.sticky-left {
+        background: rgba(0, 0, 0, 0.92);
+      }
+
+      .matrix tbody td {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 12px 14px;
+        vertical-align: top;
+      }
+
+      .matrix tbody tr td {
+        transition:
+          background 140ms ease,
+          border-color 140ms ease;
+      }
+
+      .matrix tbody tr:hover td {
+        background: rgba(255, 255, 255, 0.022);
+      }
+
+      .matrix tbody tr:hover td.sticky-left {
+        background: rgba(0, 0, 0, 0.96);
+      }
+
+      .day {
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        color: var(--text);
+      }
+
+      .dow {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .base {
+        color: var(--soft);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      .route {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.35;
+      }
+
+      .daytype {
+        display: inline-flex;
+        align-items: center;
+        width: max-content;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.035);
+        color: var(--soft);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .daytype.travel {
+        border-color: rgba(124, 199, 255, 0.42);
+      }
+
+      .daytype.arrival {
+        border-color: rgba(157, 240, 197, 0.42);
+      }
+
+      .daytype.shopping {
+        border-color: rgba(255, 210, 138, 0.48);
+      }
+
+      .daytype.ceremony {
+        border-color: rgba(255, 158, 200, 0.48);
+      }
+
+      .daytype.flex {
+        border-color: rgba(255, 255, 255, 0.18);
+      }
+
+      .rundown {
+        color: var(--soft);
+        font-weight: 750;
+        letter-spacing: -0.01em;
+        line-height: 1.45;
+      }
+
+      .agenda {
+        display: grid;
+        gap: 8px;
+        min-width: 300px;
+      }
+
+      .slot {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        gap: 10px;
+        align-items: start;
+        padding: 9px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: var(--radius-sm);
+        background: rgba(255, 255, 255, 0.025);
+      }
+
+      .slot-time {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .slot-main {
+        color: var(--soft);
+        font-size: 13px;
+        font-weight: 750;
+        line-height: 1.35;
+      }
+
+      .status-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .status-chip {
+        display: inline-flex;
+        width: max-content;
+        max-width: 190px;
+        padding: 7px 9px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.035);
+        color: var(--soft);
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1.2;
+      }
+
+      .status-chip.todo {
+        border-color: rgba(255, 210, 138, 0.45);
+        color: #ffe0a8;
+      }
+
+      .status-chip.confirmed {
+        border-color: rgba(157, 240, 197, 0.42);
+        color: #c5ffe4;
+      }
+
+      .rundown ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .rundown li {
+        margin: 6px 0 0;
+        color: var(--soft);
+      }
+
+      .note {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .dots {
+        display: inline-flex;
+        gap: 10px;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .p {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        display: inline-block;
+      }
+
+      .p.on {
+        filter: saturate(1.1);
+      }
+
+      .p.off {
+        opacity: 0.28;
+        box-shadow: none !important;
+      }
+
+      .p.siu {
+        background: var(--blue);
+        box-shadow: 0 0 16px rgba(124, 199, 255, 0.45);
+      }
+
+      .p.pansy {
+        background: var(--pink);
+        box-shadow: 0 0 16px rgba(255, 158, 200, 0.45);
+      }
+
+      .p.honbiu {
+        background: var(--amber);
+        box-shadow: 0 0 16px rgba(255, 210, 138, 0.45);
+      }
+
+      .p.puiming {
+        background: var(--green);
+        box-shadow: 0 0 16px rgba(157, 240, 197, 0.45);
+      }
+
+      .lodging {
+        color: var(--soft);
+        font-weight: 800;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+      }
+
+      .lodging:hover {
+        color: var(--text);
+        border-bottom-color: rgba(255, 255, 255, 0.5);
+      }
+
+      .lodging-inline {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 26px;
+      }
+
+      .loc-emoji {
+        display: inline;
+        font-size: 16px;
+        line-height: 1;
+        flex: 0 0 auto;
+      }
+
+      .lodging-cards {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 14px;
+      }
+
+      .lcard {
+        grid-column: span 4;
+        border: 1px solid var(--line);
+        background: var(--panel-strong);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: 0 18px 60px var(--shadow);
+      }
+
+      @media (max-width: 980px) {
+        .lcard {
+          grid-column: span 6;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .lcard {
+          grid-column: span 12;
+        }
+      }
+
+      .lcard-media {
+        height: 150px;
+        background: rgba(255, 255, 255, 0.04);
+        display: grid;
+        place-items: center;
+        font-size: 46px;
+      }
+
+      .lcard-media .loc-emoji {
+        font-size: 46px;
+      }
+
+      .place-meta {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 750;
+        letter-spacing: -0.01em;
+        line-height: 1.4;
+      }
+
+      /* Leaflet: dark popup styling to match the UI */
+      .leaflet-popup-content-wrapper,
+      .leaflet-popup-tip {
+        background: rgba(15, 15, 15, 0.96);
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+      }
+
+      .leaflet-popup-content-wrapper {
+        border-radius: 16px;
+        backdrop-filter: blur(18px);
+      }
+
+      .leaflet-popup-content {
+        margin: 10px 12px;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .leaflet-container a.leaflet-popup-close-button {
+        color: rgba(255, 255, 255, 0.72);
+      }
+
+      .leaflet-container a.leaflet-popup-close-button:hover {
+        color: rgba(255, 255, 255, 0.95);
+      }
+
+      .leaflet-popup-content b {
+        font-size: 13px;
+        letter-spacing: -0.02em;
+      }
+
+      .leaflet-control-zoom a {
+        background: rgba(15, 15, 15, 0.92) !important;
+        color: rgba(255, 255, 255, 0.88) !important;
+        border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      }
+
+      .leaflet-control-zoom a:hover {
+        background: rgba(255, 255, 255, 0.06) !important;
+        color: rgba(255, 255, 255, 0.98) !important;
+      }
+
+      .lcard-body {
+        padding: 14px 14px 16px;
+      }
+
+      .lcard-title {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .lcard h3 {
+        margin: 0;
+        font-size: 14px;
+        letter-spacing: -0.02em;
+      }
+
+      .lcard-meta {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .lcard-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .mini {
+        padding: 22px;
+        min-height: 190px;
+      }
+
+      .mini h3 {
+        margin: 0 0 12px;
+        font-size: 20px;
+        letter-spacing: -0.04em;
+      }
+
+      .mini p,
+      .mini li {
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .mini ul {
+        margin: 14px 0 0;
+        padding-left: 20px;
+      }
+
+      .accent-blue {
+        border-top: 3px solid var(--blue);
+      }
+
+      .accent-green {
+        border-top: 3px solid var(--green);
+      }
+
+      .accent-pink {
+        border-top: 3px solid var(--pink);
+      }
+
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        margin-top: 26px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 880px) {
+        main {
+          width: min(100% - 22px, 720px);
+          padding-top: 24px;
+        }
+
+        .hero,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .stats {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .section-head,
+        footer {
+          display: block;
+        }
+
+        .map-grid {
+          grid-template-columns: 1fr;
+        }
+
+        #trip-map {
+          height: min(44vh, 420px);
+        }
+
+        .places {
+          max-height: none;
+          overflow: visible;
+          padding: 12px;
+        }
+
+        .place {
+          padding: 14px;
+        }
+
+        .place h3 {
+          font-size: 15px;
+        }
+
+        .actions {
+          flex-direction: column;
+        }
+
+        .actions .btn {
+          width: 100%;
+          text-align: center;
+          padding: 10px 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="hero">
+        <section class="card intro" aria-labelledby="page-title">
+          <div class="eyebrow"><span class="pulse"></span> Graduation Trip Planner</div>
+          <h1 id="page-title">Hong Kong to London, Lyon, Valencia.</h1>
+          <p class="lede">
+            A living itinerary snapshot for Emil's graduation trip with parents and partner. Flight bookings are confirmed; hotels, ceremony details, sightseeing, and transfers are still open planning areas.
+          </p>
+          <div class="stats" aria-label="Trip stats">
+            <div class="stat"><b>4</b><span>Travelers</span></div>
+            <div class="stat"><b>4</b><span>Cities</span></div>
+            <div class="stat"><b>3</b><span>Airlines</span></div>
+            <div class="stat"><b>23</b><span>Trip Days</span></div>
+          </div>
+        </section>
+      </div>
+
+      <section aria-labelledby="map-title">
+        <div class="section-head">
+          <h2 id="map-title">Map</h2>
+          <p>Click a place to pan/zoom, or open it directly in Google Maps.</p>
+        </div>
+        <div class="card map-card">
+          <div class="map-toolbar" aria-label="Map toolbar">
+            <div class="segmented" role="group" aria-label="Map style">
+              <button class="js-style" data-style="dark" aria-pressed="true" type="button">Dark</button>
+              <button class="js-style" data-style="voyager" aria-pressed="false" type="button">Voyager</button>
+            </div>
+            <div class="segmented" role="group" aria-label="Map filter">
+              <button class="js-tab" data-tab="lodging" aria-pressed="true" type="button">Lodging</button>
+              <button class="js-tab" data-tab="other" aria-pressed="false" type="button">Other</button>
+            </div>
+            <div class="hint">No keys needed</div>
+          </div>
+          <div class="map-grid">
+            <div id="trip-map" role="application" aria-label="Trip map"></div>
+            <aside class="places" aria-label="Places list">
+              <div class="places-group" data-tab="lodging" aria-label="Lodging places">
+              <div class="place" data-place-id="hotel_heeton_hammersmith">
+                <h3>Hotel — Heeton Concept (Hammersmith)</h3>
+                <p class="addr">28 - 36 Glenthorne Road, Hammersmith, London W6 0LS</p>
+                <p class="place-meta">Stay · 28–30 May 2026</p>
+                <div class="actions">
+                  <button class="btn js-focus" data-place-id="hotel_heeton_hammersmith">Focus</button>
+                  <a class="btn" href="https://www.google.com/maps/search/?api=1&query=28%20-%2036%20Glenthorne%20Road%2C%20Hammersmith%2C%20London%20W6%200LS" target="_blank" rel="noreferrer">Google Maps</a>
+                </div>
+              </div>
+
+              <div class="place" data-place-id="hotel_hilton_garden_inn_old_trafford">
+                <h3>Hotel — Hilton Garden Inn (Emirates Old Trafford, Manchester)</h3>
+                <p class="addr">Talbot Rd, Old Trafford, Stretford, M16 0PX, United Kingdom</p>
+                <p class="place-meta">Stay · Sat, 23 May 2026 (after 15:00) → Sun, 24 May 2026 (before 12:00)</p>
+                <div class="actions">
+                  <button class="btn js-focus" data-place-id="hotel_hilton_garden_inn_old_trafford">Focus</button>
+                  <a class="btn" href="https://www.google.com/maps/search/?api=1&query=Hilton%20Garden%20Inn%20at%20Emirates%20Old%20Trafford%20Manchester" target="_blank" rel="noreferrer">Google Maps</a>
+                </div>
+              </div>
+
+              <div class="place" data-place-id="airbnb_london_islington_highbury">
+                <h3>Airbnb — Islington (Highbury Station Rd)</h3>
+                <p class="addr">69 Highbury Station Rd, London N1 1SY, UK</p>
+                <p class="place-meta">Stay · Sun, 24 May 2026 (after 15:00) → Wed, 27 May 2026 (by 11:00) · Host Julie</p>
+                <div class="actions">
+                  <button class="btn js-focus" data-place-id="airbnb_london_islington_highbury">Focus</button>
+                  <a class="btn" href="https://www.google.com/maps/search/?api=1&query=69%20Highbury%20Station%20Rd%2C%20London%20N1%201SY%2C%20UK" target="_blank" rel="noreferrer">Google Maps</a>
+                </div>
+              </div>
+              <div class="place" data-place-id="hotel_leonardo_brighton">
+                <h3>Hotel — Leonardo Hotel Brighton</h3>
+                <p class="addr">101 Stroudley Road, Brighton and Hove, United Kingdom, BN1 4DJ</p>
+                <p class="place-meta">Stay · Wed, 27 May 2026 (after 15:00) → Thu, 28 May 2026 (before 11:00)</p>
+                <div class="actions">
+                  <button class="btn js-focus" data-place-id="hotel_leonardo_brighton">Focus</button>
+                  <a class="btn" href="https://www.google.com/maps/search/?api=1&query=Leonardo%20Hotel%20Brighton%20101%20Stroudley%20Road%20BN1%204DJ" target="_blank" rel="noreferrer">Google Maps</a>
+                </div>
+              </div>
+              <div class="place" data-place-id="airbnb_lyon_croix_rousse">
+                <h3>Airbnb — Lyon (Croix-Rousse area)</h3>
+                <p class="addr">21 Rue Pierre Brunier, 69300 Caluire-et-Cuire, France</p>
+                <p class="place-meta">Stay · 30 May–1 Jun 2026</p>
+                <div class="actions">
+                  <button class="btn js-focus" data-place-id="airbnb_lyon_croix_rousse">Focus</button>
+                  <a class="btn" href="https://www.google.com/maps/search/?api=1&query=21%20Rue%20Pierre%20Brunier%2C%2069300%20Caluire-et-Cuire%2C%20France" target="_blank" rel="noreferrer">Google Maps</a>
+                  <a
+                    class="btn"
+                    href="https://www.airbnb.com/trips/v1/reservation-details/ro/RESERVATION2_CHECKIN/HM49HR2HSN?src_section=BOOKING_EMAIL_SHOW_RESERVATION_BUTTON&c=.pi80.pkYm9va2luZy9ndWVzdC9SZXNlcnZhdGlvbkNvbmZpcm1hdGlvblRlbXBsYXRl&euid=8927e80a-242c-ea46-f68e-894617f48d1d"
+                    target="_blank"
+                    rel="noreferrer"
+                    >Website</a
+                  >
+                </div>
+              </div>
+
+              <div class="place" data-place-id="airbnb_london_kilburn_priory">
+                <h3>Airbnb — Kilburn Park (Maida Vale)</h3>
+                <p class="addr">7 Kilburn Priory, North Maida Vale, London NW6 5NJ, UK</p>
+                <p class="place-meta">Stay · Mon, 1 Jun 2026 (after 16:00) → Wed, 3 Jun 2026 (by 10:00) · 4 adults · Host Susan</p>
+                <div class="actions">
+                  <button class="btn js-focus" data-place-id="airbnb_london_kilburn_priory">Focus</button>
+                  <a class="btn" href="https://www.google.com/maps/search/?api=1&query=7%20Kilburn%20Priory%2C%20North%20Maida%20Vale%2C%20London%20NW6%205NJ%2C%20UK" target="_blank" rel="noreferrer">Google Maps</a>
+                </div>
+              </div>
+
+              <div class="place" data-place-id="airbnb_valencia_lepant">
+                <h3>Airbnb — Valencia (Centro)</h3>
+                <p class="addr">Carrer de Lepant, 4, 46008 Valencia, Spain</p>
+                <p class="place-meta">Stay · 3–5 Jun 2026</p>
+                <div class="actions">
+                  <button class="btn js-focus" data-place-id="airbnb_valencia_lepant">Focus</button>
+                  <a class="btn" href="https://www.google.com/maps/search/?api=1&query=Carrer%20de%20Lepant%204%2C%2046008%20Valencia%2C%20Spain" target="_blank" rel="noreferrer">Google Maps</a>
+                  <a
+                    class="btn"
+                    href="https://www.airbnb.com/trips/v1/reservation-details/ro/RESERVATION2_CHECKIN/HM24RB29MP?src_section=BOOKING_EMAIL_SHOW_RESERVATION_BUTTON&c=.pi80.pkYm9va2luZy9ndWVzdC9SZXNlcnZhdGlvbkNvbmZpcm1hdGlvblRlbXBsYXRl&euid=cd971c80-fcac-8056-f7eb-657f0230ce77"
+                    target="_blank"
+                    rel="noreferrer"
+                    >Website</a
+                  >
+                </div>
+              </div>
+
+              <div class="place" data-place-id="airbnb_london_osier_way">
+                <h3>Airbnb — London (East London)</h3>
+                <p class="addr">30 Osier Way, London E10 5SD, UK</p>
+                <p class="place-meta">Stay · 6–13 Jun 2026</p>
+                <div class="actions">
+                  <button class="btn js-focus" data-place-id="airbnb_london_osier_way">Focus</button>
+                  <a class="btn" href="https://www.google.com/maps/search/?api=1&query=30%20Osier%20Way%2C%20London%20E10%205SD%2C%20UK" target="_blank" rel="noreferrer">Google Maps</a>
+                  <a
+                    class="btn"
+                    href="https://www.airbnb.com/trips/v1/reservation-details/ro/RESERVATION2_CHECKIN/HMX2THDNKR?src_section=BOOKING_EMAIL_SHOW_RESERVATION_BUTTON&c=.pi80.pkYm9va2luZy9ndWVzdC9SZXNlcnZhdGlvbkNvbmZpcm1hdGlvblRlbXBsYXRl&euid=af219440-5f94-7915-b8a4-fc6470fc1c9c"
+                    target="_blank"
+                    rel="noreferrer"
+                    >Website</a
+                  >
+                </div>
+              </div>
+              </div>
+
+              <div class="places-group" data-tab="other" aria-label="Other places" hidden>
+                <div class="place" data-place-id="imperial_south_kensington">
+                  <h3>Graduation — Imperial (South Kensington)</h3>
+                  <p class="addr">Imperial College London, South Kensington Campus, London</p>
+                  <p class="place-meta">Tue, 2 Jun 2026 · Ceremony time TBD</p>
+                  <div class="actions">
+                    <button class="btn js-focus" data-place-id="imperial_south_kensington">Focus</button>
+                    <a class="btn" href="https://www.google.com/maps/search/?api=1&query=Imperial%20College%20London%20South%20Kensington%20Campus" target="_blank" rel="noreferrer">Google Maps</a>
+                  </div>
+                </div>
+
+                <div class="place" data-place-id="flat_iron_kensington">
+                  <h3>Dinner — Flat Iron Kensington (VEG3Q)</h3>
+                  <p class="addr">9 Young Street, Kensington, London, W8 5EH</p>
+                  <p class="place-meta">Tue, 2 Jun 2026 · 18:30 · Party of 4</p>
+                  <div class="actions">
+                    <button class="btn js-focus" data-place-id="flat_iron_kensington">Focus</button>
+                    <a class="btn" href="https://www.google.com/maps/search/?api=1&query=9%20Young%20Street%2C%20Kensington%2C%20London%2C%20W8%205EH" target="_blank" rel="noreferrer">Google Maps</a>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="timeline-title">
+        <div class="section-head">
+          <h2 id="timeline-title">Daily Rundown</h2>
+          <p>Focus on what happens each day + where you’re staying. Traveler dots are an at-a-glance presence indicator.</p>
+        </div>
+        <div class="legend" aria-label="Traveler legend">
+          <span class="who"><span class="swatch sw-siu"></span> Siu</span>
+          <span class="who"><span class="swatch sw-pansy"></span> Pansy</span>
+          <span class="who"><span class="swatch sw-honbiu"></span> HonBiu</span>
+          <span class="who"><span class="swatch sw-puiming"></span> PuiMing</span>
+        </div>
+        <div class="table-shell" role="region" aria-label="Daily itinerary table">
+          <div class="table-wrap">
+            <table class="matrix">
+              <thead>
+                <tr>
+                  <th class="sticky-left">Date</th>
+                  <th>Type</th>
+                  <th>Route / Base</th>
+                  <th>Schedule</th>
+                  <th>Travelers</th>
+                  <th>Lodging</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="sticky-left"><span class="day">22 May</span><span class="dow">Fri</span></td>
+                  <td><span class="daytype travel">Flight</span></td>
+                  <td><div class="base">Hong Kong → London</div><div class="route">BA0032 · HKG T1 22:45</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Airport buffer + check-in</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Overnight flight to London</span></div></div></td>
+                  <td><span class="dots" aria-label="Travelers present"><span class="p siu on" title="Siu"></span><span class="p pansy off" title="Pansy (not with group yet)"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td>—</td>
+                  <td><span class="status-chip confirmed">Booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">23 May</span><span class="dow">Sat</span></td>
+                  <td><span class="daytype arrival">Arrival</span></td>
+                  <td><div class="base">London</div><div class="route">LHR T5 arrival 06:15</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Arrive + buffer</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Transfer to Manchester + hotel check-in (after 15:00)</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Easy dinner near hotel</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy off" title="Pansy (not with group yet)"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="hotel_hilton_garden_inn_old_trafford">Hilton Garden Inn (Old Trafford)</a></td>
+                  <td><span class="status-chip confirmed">Hotel booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">24 May</span><span class="dow">Sun</span></td>
+                  <td><span class="daytype flex">Flexible</span></td>
+                  <td><div class="base">London</div><div class="route">Base day</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Slow London morning</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Graduation logistics + photo spot shortlist</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Dinner near accommodation</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy off" title="Pansy (not with group yet)"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_islington_highbury">Airbnb Islington</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">25 May</span><span class="dow">Mon</span></td>
+                  <td><span class="daytype flex">Flexible</span></td>
+                  <td><div class="base">London</div><div class="route">Base day</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Flexible London morning</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Open sightseeing block</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy off" title="Pansy (not with group yet)"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_islington_highbury">Airbnb Islington</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">26 May</span><span class="dow">Tue</span></td>
+                  <td><span class="daytype flex">Flexible</span></td>
+                  <td><div class="base">London</div><div class="route">Base day</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Flexible London morning</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Open sightseeing block</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy off" title="Pansy (not with group yet)"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_islington_highbury">Airbnb Islington</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">27 May</span><span class="dow">Wed</span></td>
+                  <td><span class="daytype flex">Day trip</span></td>
+                  <td><div class="base">London → Seven Sisters → Brighton</div><div class="route">Overnight in Brighton</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Check out Islington (by 11:00) → Seven Sisters area</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Coastal walk + head to Brighton</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Brighton dinner + check-in (after 15:00)</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy off" title="Pansy (not with group yet)"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="hotel_leonardo_brighton">Leonardo Hotel Brighton</a></td>
+                  <td><span class="status-chip confirmed">Hotel booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">28 May</span><span class="dow">Thu</span></td>
+                  <td><span class="daytype travel">Split travel</span></td>
+                  <td><div class="base">London / Hong Kong</div><div class="route">Pansy HKG → LHR · BA0032 22:45</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">London day for Siu + parents</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Pansy overnight flight from Hong Kong</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy (travel day)"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="hotel_heeton_hammersmith">Heeton (Hammersmith)</a></td>
+                  <td><span class="status-chip confirmed">Hotel booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">29 May</span><span class="dow">Fri</span></td>
+                  <td><span class="daytype shopping">Shopping</span></td>
+                  <td><div class="base">London ↔ Bicester Village</div><div class="route">Pansy arrives LHR 06:15</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Pansy arrival + settle in</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Bicester Village outlet day trip</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Return to Heeton Hammersmith</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="hotel_heeton_hammersmith">Heeton (Hammersmith)</a></td>
+                  <td><div class="status-stack"><span class="status-chip confirmed">Hotel booked</span><span class="status-chip todo">Book train</span></div></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">30 May</span><span class="dow">Sat</span></td>
+                  <td><span class="daytype travel">Flight</span></td>
+                  <td><div class="base">London → Lyon</div><div class="route">U28429 · LGW 14:35 → LYS 17:15</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">London morning buffer</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Fly to Lyon + check in</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Lyon arrival dinner</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_lyon_croix_rousse">Airbnb (Croix-Rousse)</a></td>
+                  <td><span class="status-chip confirmed">Booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">31 May</span><span class="dow">Sun</span></td>
+                  <td><span class="daytype flex">Sightseeing</span></td>
+                  <td><div class="base">Lyon</div><div class="route">Vieux Lyon / Fourvière ideas</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Slow Lyon start</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Old town / Fourvière area</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Food-focused dinner</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_lyon_croix_rousse">Airbnb (Croix-Rousse)</a></td>
+                  <td><span class="status-chip confirmed">Stay booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">1 Jun</span><span class="dow">Mon</span></td>
+                  <td><span class="daytype travel">Flight</span></td>
+                  <td><div class="base">Lyon → London</div><div class="route">U28433 · LYS 18:40 → LGW 19:20</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Lyon morning</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Fly back to London</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">London arrival reset</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_kilburn_priory">Airbnb Kilburn</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">2 Jun</span><span class="dow">Tue</span></td>
+                  <td><span class="daytype ceremony">Ceremony</span></td>
+                  <td><div class="base">London</div><div class="route">Imperial South Kensington</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Graduation preparation</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main"><a class="lodging" href="#" data-place-id="imperial_south_kensington">Graduation ceremony</a></span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Family photos + <a class="lodging" href="#" data-place-id="flat_iron_kensington">Flat Iron Kensington 18:30 (VEG3Q)</a></span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_kilburn_priory">Airbnb Kilburn</a></td>
+                  <td><div class="status-stack"><span class="status-chip confirmed">Ceremony set</span><span class="status-chip todo">Time TBD</span></div></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">3 Jun</span><span class="dow">Wed</span></td>
+                  <td><span class="daytype travel">Flight</span></td>
+                  <td><div class="base">London → Valencia</div><div class="route">FR6325 · STN 14:05 → VLC 17:30</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Check out Kilburn (by 10:00) + STN buffer</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Fly to Valencia + check in</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Valencia arrival dinner</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_valencia_lepant">Airbnb (Lepant)</a></td>
+                  <td><span class="status-chip confirmed">Booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">4 Jun</span><span class="dow">Thu</span></td>
+                  <td><span class="daytype flex">Sightseeing</span></td>
+                  <td><div class="base">Valencia</div><div class="route">Old town / City of Arts / beach ideas</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Valencia old town option</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">City of Arts & Sciences or beach</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Dinner near center</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_valencia_lepant">Airbnb (Lepant)</a></td>
+                  <td><span class="status-chip confirmed">Stay booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">5 Jun</span><span class="dow">Fri</span></td>
+                  <td><span class="daytype travel">Flight</span></td>
+                  <td><div class="base">Valencia → London</div><div class="route">FR1735 · VLC 22:30 → STN 23:59</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Valencia morning</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Sightseeing + late departure buffer</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Late flight back to London</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu"></span><span class="p puiming on" title="PuiMing"></span></span></td>
+                  <td><a class="lodging" href="#lodging-london">London (Missing)</a></td>
+                  <td><span class="status-chip todo">Need lodging</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">6 Jun</span><span class="dow">Sat</span></td>
+                  <td><span class="daytype travel">Departure</span></td>
+                  <td><div class="base">London / Hong Kong</div><div class="route">Parents BA0031 · LHR 19:20</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Reset after late arrival</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Parents transfer to Heathrow</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Parents depart to Hong Kong</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu (travel day)"></span><span class="p puiming on" title="PuiMing (travel day)"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_osier_way">Airbnb (Osier Way)</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">7 Jun</span><span class="dow">Sun</span></td>
+                  <td><span class="daytype arrival">Split day</span></td>
+                  <td><div class="base">London / Hong Kong</div><div class="route">Parents arrive HKG 15:25</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Siu + Pansy London day</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Parents arrive back in Hong Kong</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu on" title="HonBiu (arrives home)"></span><span class="p puiming on" title="PuiMing (arrives home)"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_osier_way">Airbnb (Osier Way)</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">8 Jun</span><span class="dow">Mon</span></td>
+                  <td><span class="daytype flex">Flexible</span></td>
+                  <td><div class="base">London</div><div class="route">Parents back in Hong Kong</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">London day for Siu + Pansy</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Open plan</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu off" title="HonBiu (not traveling)"></span><span class="p puiming off" title="PuiMing (not traveling)"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_osier_way">Airbnb (Osier Way)</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">9 Jun</span><span class="dow">Tue</span></td>
+                  <td><span class="daytype flex">Flexible</span></td>
+                  <td><div class="base">London</div><div class="route">Base day</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Flexible London morning</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Open sightseeing block</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu off" title="HonBiu (not traveling)"></span><span class="p puiming off" title="PuiMing (not traveling)"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_osier_way">Airbnb (Osier Way)</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">10 Jun</span><span class="dow">Wed</span></td>
+                  <td><span class="daytype flex">Flexible</span></td>
+                  <td><div class="base">London</div><div class="route">Base day</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Flexible London morning</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Open sightseeing block</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu off" title="HonBiu (not traveling)"></span><span class="p puiming off" title="PuiMing (not traveling)"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_osier_way">Airbnb (Osier Way)</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">11 Jun</span><span class="dow">Thu</span></td>
+                  <td><span class="daytype flex">Prep</span></td>
+                  <td><div class="base">London</div><div class="route">Final full day</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Flexible London morning</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Pack + Heathrow transfer planning</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu off" title="HonBiu (not traveling)"></span><span class="p puiming off" title="PuiMing (not traveling)"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_osier_way">Airbnb (Osier Way)</a></td>
+                  <td><span class="status-chip confirmed">Airbnb booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">12 Jun</span><span class="dow">Fri</span></td>
+                  <td><span class="daytype travel">Flight</span></td>
+                  <td><div class="base">London → Hong Kong</div><div class="route">BA0031 · LHR 19:20</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">AM</span><span class="slot-main">Check-out + luggage logistics</span></div><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Transfer to Heathrow</span></div><div class="slot"><span class="slot-time">EVE</span><span class="slot-main">Flight home</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu (travel day)"></span><span class="p pansy on" title="Pansy (travel day)"></span><span class="p honbiu off" title="HonBiu (not traveling)"></span><span class="p puiming off" title="PuiMing (not traveling)"></span></span></td>
+                  <td><a class="lodging" href="#" data-place-id="airbnb_london_osier_way">Airbnb (Osier Way)</a></td>
+                  <td><span class="status-chip confirmed">Booked</span></td>
+                </tr>
+                <tr>
+                  <td class="sticky-left"><span class="day">13 Jun</span><span class="dow">Sat</span></td>
+                  <td><span class="daytype arrival">Arrival</span></td>
+                  <td><div class="base">Hong Kong</div><div class="route">Arrive HKG 15:25</div></td>
+                  <td class="rundown"><div class="agenda"><div class="slot"><span class="slot-time">PM</span><span class="slot-main">Arrival home + rest</span></div></div></td>
+                  <td><span class="dots"><span class="p siu on" title="Siu"></span><span class="p pansy on" title="Pansy"></span><span class="p honbiu off" title="HonBiu (not traveling)"></span><span class="p puiming off" title="PuiMing (not traveling)"></span></span></td>
+                  <td>—</td>
+                  <td><span class="status-chip confirmed">Arrive home</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="lodging-index-title">
+        <div class="section-head">
+          <h2 id="lodging-index-title">Lodging Links (Ready For Hotels/Airbnb)</h2>
+          <p>When you add hotel/Airbnb details, we can link each date’s lodging cell to the right stay here.</p>
+        </div>
+        <div class="grid">
+          <article id="lodging-london" class="card mini accent-blue">
+            <h3>London</h3>
+            <p>Confirmed stays exist, but some nights are still missing.</p>
+            <ul>
+              <li><a class="lodging" href="#" data-place-id="airbnb_london_islington_highbury">Airbnb: Islington (69 Highbury Station Rd)</a> (24–27 May)</li>
+              <li><a class="lodging" href="#" data-place-id="hotel_heeton_hammersmith">Heeton Concept Hotel - Luma Hammersmith</a> (28–30 May)</li>
+              <li><a class="lodging" href="#" data-place-id="airbnb_london_kilburn_priory">Airbnb: Kilburn Park (7 Kilburn Priory)</a> (1–3 Jun)</li>
+              <li><a class="lodging" href="#" data-place-id="airbnb_london_osier_way">Airbnb: 30 Osier Way</a> (6–13 Jun)</li>
+              <li>Missing: 5–6 Jun</li>
+            </ul>
+          </article>
+          <article id="lodging-manchester" class="card mini accent-blue">
+            <h3>Manchester</h3>
+            <p>Confirmed hotel stay.</p>
+            <ul>
+              <li><a class="lodging" href="#" data-place-id="hotel_hilton_garden_inn_old_trafford">Hilton Garden Inn: Emirates Old Trafford</a> (23–24 May)</li>
+            </ul>
+          </article>
+          <article id="lodging-brighton" class="card mini accent-blue">
+            <h3>Brighton</h3>
+            <p>Confirmed hotel stay.</p>
+            <ul>
+              <li><a class="lodging" href="#" data-place-id="hotel_leonardo_brighton">Leonardo Hotel Brighton</a> (27–28 May)</li>
+            </ul>
+          </article>
+          <article id="lodging-lyon" class="card mini accent-green">
+            <h3>Lyon</h3>
+            <p>Confirmed Airbnb stay.</p>
+            <ul>
+              <li><a class="lodging" href="#" data-place-id="airbnb_lyon_croix_rousse">Airbnb: 21 Rue Pierre Brunier</a> (30 May–1 Jun)</li>
+            </ul>
+          </article>
+          <article id="lodging-valencia" class="card mini accent-pink">
+            <h3>Valencia</h3>
+            <p>Confirmed Airbnb stay.</p>
+            <ul>
+              <li><a class="lodging" href="#" data-place-id="airbnb_valencia_lepant">Airbnb: Carrer de Lepant, 4</a> (3–5 Jun)</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="lodging-cards-title">
+        <div class="section-head">
+          <h2 id="lodging-cards-title">Lodging Cards</h2>
+          <p>Quick scan of each stay with dates, address, map focus, and website link.</p>
+        </div>
+        <div id="lodging-cards" class="lodging-cards" aria-label="Lodging cards"></div>
+      </section>
+
+      <section aria-labelledby="planning-title">
+        <div class="section-head">
+          <h2 id="planning-title">Planning Boards</h2>
+          <p>The agent files hold the operational context. These cards show what is confirmed and what still needs attention.</p>
+        </div>
+        <div class="grid">
+          <article class="card mini accent-blue">
+            <h3>Flights</h3>
+            <p>Confirmed routes across British Airways, easyJet, and Ryanair.</p>
+            <ul>
+              <li>BA booking refs: YCEG47, YCD2VY, XB4JHD</li>
+              <li>easyJet refs: KCBHQKM, KCBHR33</li>
+              <li>Ryanair ref: unknown</li>
+            </ul>
+          </article>
+          <article class="card mini accent-green">
+            <h3>Hotels</h3>
+            <p>Most stays are booked; a few London nights may still need confirmation.</p>
+            <ul>
+              <li>London: Islington, Kilburn (1–3 Jun), East London (6–13 Jun), etc.</li>
+              <li>Lyon + Valencia Airbnbs booked</li>
+              <li>Gap: London 5–6 Jun (late return from Valencia)</li>
+            </ul>
+          </article>
+          <article class="card mini accent-pink">
+            <h3>Sightseeing</h3>
+            <p>No activity bookings have been provided yet.</p>
+            <ul>
+              <li>Graduation ceremony details needed</li>
+              <li>City priorities needed</li>
+              <li>Restaurant and transport plans open</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <footer>
+        <span>Generated from Markdown trip context.</span>
+        <span>Last updated: 26 Apr 2026</span>
+      </footer>
+    </main>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
+    <script>
+      (function () {
+        const el = document.getElementById("trip-map");
+        if (!el || !window.L) return;
+
+        const map = L.map("trip-map", { zoomControl: true, scrollWheelZoom: true }).setView([51.5072, -0.1276], 11);
+        const tileDefs = {
+          // Modern-looking basemaps, no API key required.
+          dark: {
+            url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          },
+          voyager: {
+            url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          },
+        };
+
+        let currentTiles = L.tileLayer(tileDefs.dark.url, { maxZoom: 19, attribution: tileDefs.dark.attribution }).addTo(map);
+
+        function setStyle(style) {
+          const def = tileDefs[style];
+          if (!def) return;
+          if (currentTiles) map.removeLayer(currentTiles);
+          currentTiles = L.tileLayer(def.url, { maxZoom: 19, attribution: def.attribution }).addTo(map);
+        }
+
+        const places = [
+          {
+            id: "imperial_south_kensington",
+            name: "Imperial (South Kensington)",
+            query: "Imperial College London South Kensington Campus",
+            kind: "ceremony",
+            meta: "Tue, 2 Jun 2026 · Ceremony time TBD",
+            lat: 51.4988,
+            lng: -0.1749,
+          },
+          {
+            id: "flat_iron_kensington",
+            name: "Flat Iron Kensington",
+            query: "9 Young Street, Kensington, London, W8 5EH",
+            kind: "food",
+            siteUrl: null,
+            meta: "Tue, 2 Jun 2026 · 18:30 · Party of 4 · Ref VEG3Q",
+          },
+          {
+            id: "hotel_heeton_hammersmith",
+            name: "Heeton Concept Hotel - Luma Hammersmith",
+            query: "28 - 36 Glenthorne Road, Hammersmith, London W6 0LS",
+            kind: "hotel",
+            siteUrl: null,
+            meta: "Stay · 28–30 May 2026",
+          },
+          {
+            id: "hotel_hilton_garden_inn_old_trafford",
+            name: "Hilton Garden Inn (Emirates Old Trafford, Manchester)",
+            query: "Talbot Rd, Old Trafford, Stretford, M16 0PX, United Kingdom",
+            kind: "hotel",
+            siteUrl: null,
+            meta: "Stay · 23–24 May 2026 (after 15:00 → before 12:00)",
+          },
+          {
+            id: "airbnb_london_islington_highbury",
+            name: "Airbnb London — Islington (Well Connected 1BDR)",
+            query: "69 Highbury Station Rd, London N1 1SY, UK",
+            kind: "lodging",
+            siteUrl: null,
+            meta: "Stay · 24–27 May 2026 (after 15:00 → by 11:00) · Host Julie",
+          },
+          {
+            id: "hotel_leonardo_brighton",
+            name: "Leonardo Hotel Brighton",
+            query: "101 Stroudley Road, Brighton and Hove, United Kingdom, BN1 4DJ",
+            kind: "hotel",
+            siteUrl: null,
+            meta: "Stay · 27–28 May 2026 (after 15:00 → before 11:00)",
+          },
+          {
+            id: "airbnb_lyon_croix_rousse",
+            name: "Airbnb Lyon (21 Rue Pierre Brunier)",
+            query: "21 Rue Pierre Brunier, 69300 Caluire-et-Cuire, France",
+            kind: "lodging",
+            siteUrl:
+              "https://www.airbnb.com/trips/v1/reservation-details/ro/RESERVATION2_CHECKIN/HM49HR2HSN?src_section=BOOKING_EMAIL_SHOW_RESERVATION_BUTTON&c=.pi80.pkYm9va2luZy9ndWVzdC9SZXNlcnZhdGlvbkNvbmZpcm1hdGlvblRlbXBsYXRl&euid=8927e80a-242c-ea46-f68e-894617f48d1d",
+            meta: "Stay · 30 May–1 Jun 2026",
+          },
+          {
+            id: "airbnb_london_kilburn_priory",
+            name: "Airbnb London — Kilburn Park (2 BR portered flat)",
+            query: "7 Kilburn Priory, North Maida Vale, London NW6 5NJ, UK",
+            kind: "lodging",
+            siteUrl: null,
+            meta: "Stay · 1–3 Jun 2026 (after 16:00 → by 10:00) · 4 adults · Host Susan",
+          },
+          {
+            id: "airbnb_valencia_lepant",
+            name: "Airbnb Valencia (Carrer de Lepant, 4)",
+            query: "Carrer de Lepant, 4, 46008 Valencia, Spain",
+            kind: "lodging",
+            siteUrl:
+              "https://www.airbnb.com/trips/v1/reservation-details/ro/RESERVATION2_CHECKIN/HM24RB29MP?src_section=BOOKING_EMAIL_SHOW_RESERVATION_BUTTON&c=.pi80.pkYm9va2luZy9ndWVzdC9SZXNlcnZhdGlvbkNvbmZpcm1hdGlvblRlbXBsYXRl&euid=cd971c80-fcac-8056-f7eb-657f0230ce77",
+            meta: "Stay · 3–5 Jun 2026",
+          },
+          {
+            id: "airbnb_london_osier_way",
+            name: "Airbnb London (30 Osier Way)",
+            query: "30 Osier Way, London E10 5SD, UK",
+            kind: "lodging",
+            siteUrl:
+              "https://www.airbnb.com/trips/v1/reservation-details/ro/RESERVATION2_CHECKIN/HMX2THDNKR?src_section=BOOKING_EMAIL_SHOW_RESERVATION_BUTTON&c=.pi80.pkYm9va2luZy9ndWVzdC9SZXNlcnZhdGlvbkNvbmZpcm1hdGlvblRlbXBsYXRl&euid=af219440-5f94-7915-b8a4-fc6470fc1c9c",
+            meta: "Stay · 6–13 Jun 2026",
+          },
+        ];
+
+        const placeById = new Map();
+        for (const p of places) {
+          placeById.set(p.id, p);
+        }
+
+        function emojiForPlace(p) {
+          if (!p) return "📍";
+          if (p.kind === "ceremony") return "🎓";
+          if (p.kind === "food") return "🍽️";
+          if (p.kind === "hotel") return "🏨";
+          if (p.kind === "lodging") return "🏠";
+          return "📍";
+        }
+
+        function mapsUrl(query) {
+          return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(String(query || "").trim());
+        }
+
+        (function injectLodgingThumbs() {
+          const links = Array.from(document.querySelectorAll('a.lodging[data-place-id]'));
+          for (const a of links) {
+            const table = a.closest("table.matrix");
+            if (!table) continue;
+            const id = a.getAttribute("data-place-id");
+            const p = placeById.get(id);
+            if (a.dataset.thumbInjected === "1") continue;
+
+            const wrap = document.createElement("span");
+            wrap.className = "lodging-inline";
+            const badge = document.createElement("span");
+            badge.className = "loc-emoji";
+            badge.textContent = emojiForPlace(p);
+            badge.setAttribute("aria-hidden", "true");
+
+            a.parentNode.insertBefore(wrap, a);
+            wrap.appendChild(badge);
+            wrap.appendChild(a);
+            a.dataset.thumbInjected = "1";
+          }
+        })();
+
+        (function renderLodgingCards() {
+          const host = document.getElementById("lodging-cards");
+          if (!host) return;
+
+          const stays = [
+            { placeId: "hotel_hilton_garden_inn_old_trafford", dates: "23–24 May", city: "Manchester", chip: "Hotel booked" },
+            { placeId: "airbnb_london_islington_highbury", dates: "24–27 May", city: "London", chip: "Airbnb booked" },
+            { placeId: "hotel_leonardo_brighton", dates: "27–28 May", city: "Brighton", chip: "Hotel booked" },
+            { placeId: "hotel_heeton_hammersmith", dates: "28–30 May", city: "London", chip: "Hotel booked" },
+            { placeId: "airbnb_lyon_croix_rousse", dates: "30 May–1 Jun", city: "Lyon", chip: "Airbnb booked" },
+            { placeId: "airbnb_london_kilburn_priory", dates: "1–3 Jun", city: "London", chip: "Airbnb booked" },
+            { placeId: "airbnb_valencia_lepant", dates: "3–5 Jun", city: "Valencia", chip: "Airbnb booked" },
+            { placeId: "airbnb_london_osier_way", dates: "6–13 Jun", city: "London", chip: "Airbnb booked" },
+          ];
+
+          host.innerHTML = stays
+            .map((s) => {
+              const p = placeById.get(s.placeId);
+              if (!p) return "";
+              const site = p.siteUrl ? `<a class="btn" href="${p.siteUrl}" target="_blank" rel="noreferrer">Website</a>` : "";
+              return (
+                `<article class="lcard" data-place-id="${p.id}">` +
+                `<div class="lcard-media"><span class="loc-emoji" aria-hidden="true">${emojiForPlace(p)}</span></div>` +
+                `<div class="lcard-body">` +
+                `<div class="lcard-title"><h3>${p.name}</h3><span class="status-chip confirmed">${s.chip}</span></div>` +
+                `<div class="lcard-meta">${s.city} · ${s.dates}<br/>${p.query}</div>` +
+                `<div class="lcard-actions">` +
+                `<button class="btn js-focus" type="button" data-place-id="${p.id}">Focus</button>` +
+                `<a class="btn" href="${mapsUrl(p.query)}" target="_blank" rel="noreferrer">Google Maps</a>` +
+                site +
+                `</div>` +
+                `</div>` +
+                `</article>`
+              );
+            })
+            .join("");
+        })();
+
+        const markers = new Map();
+        const makeCluster = () =>
+          window.L && window.L.markerClusterGroup
+            ? L.markerClusterGroup({
+                showCoverageOnHover: false,
+                spiderfyOnMaxZoom: true,
+                // Smaller radius so individual pins appear sooner.
+                maxClusterRadius: 26,
+              })
+            : null;
+
+        const lodgingCluster = makeCluster();
+        const otherCluster = makeCluster();
+        const markerLayers = new Map(); // placeId -> "lodging" | "other"
+
+        let activeTab = "lodging";
+        function kindToTab(kind) {
+          return kind === "hotel" || kind === "lodging" ? "lodging" : "other";
+        }
+
+        function setTab(tab) {
+          if (tab !== "lodging" && tab !== "other") return;
+          activeTab = tab;
+
+          document.querySelectorAll(".js-tab").forEach((b) => {
+            if (!(b instanceof HTMLButtonElement)) return;
+            b.setAttribute("aria-pressed", b.getAttribute("data-tab") === tab ? "true" : "false");
+          });
+
+          document.querySelectorAll(".places-group[data-tab]").forEach((g) => {
+            if (!(g instanceof HTMLElement)) return;
+            const t = g.getAttribute("data-tab");
+            g.hidden = t !== tab;
+          });
+
+          if (lodgingCluster) map.removeLayer(lodgingCluster);
+          if (otherCluster) map.removeLayer(otherCluster);
+          if (tab === "lodging") {
+            if (lodgingCluster) lodgingCluster.addTo(map);
+          } else {
+            if (otherCluster) otherCluster.addTo(map);
+          }
+
+          // Update route overlay to match visible tab.
+          try {
+            if (routeLine) map.removeLayer(routeLine);
+          } catch (e) {}
+          routeLine = null;
+          drawRouteOverlay().catch(() => {});
+        }
+
+        if (lodgingCluster) lodgingCluster.addTo(map);
+
+        let routeLine = null;
+
+        function iconFor(kind) {
+          const k =
+            kind === "ceremony"
+              ? "c-ceremony"
+              : kind === "hotel"
+                ? "c-hotel"
+                : kind === "food"
+                  ? "c-food"
+                  : "c-lodging";
+          return L.divIcon({
+            className: "pin-wrap",
+            html: '<span class="pin ' + k + '"></span>',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+            popupAnchor: [0, -10],
+          });
+        }
+
+        function norm(s) {
+          return String(s || "").trim();
+        }
+
+        async function geocode(place) {
+          if (typeof place.lat === "number" && typeof place.lng === "number") return place;
+          const q = encodeURIComponent(norm(place.query));
+          const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + q;
+          const res = await fetch(url, { headers: { Accept: "application/json" } });
+          const data = await res.json();
+          if (!data || !data[0]) return null;
+          return { ...place, lat: Number(data[0].lat), lng: Number(data[0].lon) };
+        }
+
+        function addMarker(place) {
+          const meta = place.meta ? '<div style="margin-top:6px;opacity:.85">' + place.meta + "</div>" : "";
+          const m = L.marker([place.lat, place.lng], { icon: iconFor(place.kind) }).bindPopup(
+            "<b>" + place.name + "</b><br/>" + place.query + meta
+          );
+
+          const tab = kindToTab(place.kind);
+          markerLayers.set(place.id, tab);
+          if (tab === "lodging") {
+            if (lodgingCluster) lodgingCluster.addLayer(m);
+            else if (activeTab === "lodging") m.addTo(map);
+          } else {
+            if (otherCluster) otherCluster.addLayer(m);
+            else if (activeTab === "other") m.addTo(map);
+          }
+          markers.set(place.id, m);
+        }
+
+        async function ensureMarker(placeId) {
+          if (markers.has(placeId)) return markers.get(placeId);
+          const p = places.find((x) => x.id === placeId);
+          if (!p) return null;
+          const withCoords = await geocode(p);
+          if (!withCoords) return null;
+          addMarker(withCoords);
+          return markers.get(placeId) || null;
+        }
+
+        async function focus(placeId) {
+          const m = await ensureMarker(placeId);
+          if (!m) return;
+          const t = markerLayers.get(placeId);
+          if (t && t !== activeTab) setTab(t);
+          map.setView(m.getLatLng(), 14, { animate: true });
+          m.openPopup();
+        }
+
+        async function drawRouteOverlay() {
+          const lodgingRouteIds = [
+            "hotel_hilton_garden_inn_old_trafford",
+            "airbnb_london_islington_highbury",
+            "hotel_leonardo_brighton",
+            "hotel_heeton_hammersmith",
+            "airbnb_lyon_croix_rousse",
+            "airbnb_london_kilburn_priory",
+            "airbnb_valencia_lepant",
+            "airbnb_london_osier_way",
+          ];
+
+          const otherRouteIds = ["imperial_south_kensington", "flat_iron_kensington"];
+
+          const routeIds = activeTab === "lodging" ? lodgingRouteIds : otherRouteIds;
+
+          const pts = [];
+          for (const id of routeIds) {
+            try {
+              const m = await ensureMarker(id);
+              if (m) pts.push(m.getLatLng());
+            } catch (e) {
+              // Ignore route enrichment failures in offline/captive environments.
+            }
+          }
+
+          if (pts.length < 2) return null;
+          routeLine = L.polyline(pts, {
+            color: "rgba(255, 255, 255, 0.55)",
+            weight: 3,
+            opacity: 0.75,
+            dashArray: "7 10",
+            lineCap: "round",
+            lineJoin: "round",
+          }).addTo(map);
+          return routeLine;
+        }
+
+        (async function init() {
+          for (const p of places) {
+            try {
+              const withCoords = await geocode(p);
+              if (withCoords) addMarker(withCoords);
+            } catch (e) {
+              // Ignore map enrichment failures in offline/captive environments.
+            }
+          }
+
+          try {
+            await drawRouteOverlay();
+          } catch (e) {
+            // Ignore overlay failures.
+          }
+
+          const group = L.featureGroup(Array.from(markers.values()));
+          if (group.getLayers().length) map.fitBounds(group.getBounds().pad(0.2));
+        })();
+
+        document.addEventListener("click", function (e) {
+          const t = e.target;
+          if (!(t instanceof HTMLElement)) return;
+
+          const styleBtn = t.closest(".js-style");
+          if (styleBtn && styleBtn instanceof HTMLButtonElement) {
+            const style = styleBtn.getAttribute("data-style");
+            if (style) setStyle(style);
+            document.querySelectorAll(".js-style").forEach((b) => {
+              if (!(b instanceof HTMLButtonElement)) return;
+              b.setAttribute("aria-pressed", b === styleBtn ? "true" : "false");
+            });
+            return;
+          }
+
+          const tabBtn = t.closest(".js-tab");
+          if (tabBtn && tabBtn instanceof HTMLButtonElement) {
+            const tab = tabBtn.getAttribute("data-tab");
+            if (tab) setTab(tab);
+            return;
+          }
+
+          const focusBtn = t.closest(".js-focus");
+          if (focusBtn && focusBtn instanceof HTMLElement) {
+            const pid = focusBtn.getAttribute("data-place-id");
+            if (pid) focus(pid);
+            return;
+          }
+
+          const placeLink = t.closest("[data-place-id]");
+          if (placeLink && placeLink instanceof HTMLAnchorElement) {
+            const pid = placeLink.getAttribute("data-place-id");
+            if (!pid) return;
+            e.preventDefault();
+            focus(pid);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
